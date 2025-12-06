@@ -1,0 +1,127 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model Store {
+  id           String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  shopDomain   String    @unique @map("shop_domain")
+  storeName    String    @map("store_name")
+  accessToken  String    @map("access_token")
+  isActive     Boolean   @default(true) @map("is_active")
+  lastSyncAt   DateTime? @map("last_sync_at") @db.Timestamptz
+  createdAt    DateTime  @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt    DateTime  @updatedAt @map("updated_at") @db.Timestamptz
+
+  products       Product[]
+  orders         Order[]
+  customers      Customer[]
+  syncJobs       SyncJob[]
+  analyticsDaily AnalyticsDaily[]
+
+  @@map("stores")
+}
+
+model Product {
+  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  storeId           String   @map("store_id") @db.Uuid
+  shopifyId         BigInt   @map("shopify_id")
+  title             String
+  vendor            String?
+  productType       String?  @map("product_type")
+  status            String   @default("active")
+  tags              String[]
+  price             Decimal? @db.Decimal(10, 2)
+  inventoryQuantity Int      @default(0) @map("inventory_quantity")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, shopifyId])
+  @@index([storeId])
+  @@index([shopifyId])
+  @@map("products")
+}
+
+model Order {
+  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  storeId           String   @map("store_id") @db.Uuid
+  shopifyId         BigInt   @map("shopify_id")
+  orderNumber       String   @map("order_number")
+  email             String?
+  totalPrice        Decimal  @map("total_price") @db.Decimal(10, 2)
+  subtotalPrice     Decimal? @map("subtotal_price") @db.Decimal(10, 2)
+  totalTax          Decimal? @map("total_tax") @db.Decimal(10, 2)
+  financialStatus   String?  @map("financial_status")
+  fulfillmentStatus String?  @map("fulfillment_status")
+  currency          String   @default("USD")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt         DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, shopifyId])
+  @@index([storeId])
+  @@index([createdAt])
+  @@map("orders")
+}
+
+model Customer {
+  id          String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  storeId     String   @map("store_id") @db.Uuid
+  shopifyId   BigInt   @map("shopify_id")
+  email       String?
+  firstName   String?  @map("first_name")
+  lastName    String?  @map("last_name")
+  totalSpent  Decimal  @default(0) @map("total_spent") @db.Decimal(10, 2)
+  ordersCount Int      @default(0) @map("orders_count")
+  state       String   @default("enabled")
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz
+  updatedAt   DateTime @updatedAt @map("updated_at") @db.Timestamptz
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, shopifyId])
+  @@index([storeId])
+  @@map("customers")
+}
+
+model SyncJob {
+  id            String    @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  storeId       String    @map("store_id") @db.Uuid
+  jobType       String    @map("job_type")
+  status        String    @default("pending")
+  startedAt     DateTime? @map("started_at") @db.Timestamptz
+  completedAt   DateTime? @map("completed_at") @db.Timestamptz
+  recordsSynced Int       @default(0) @map("records_synced")
+  errorMessage  String?   @map("error_message")
+  createdAt     DateTime  @default(now()) @map("created_at") @db.Timestamptz
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@index([storeId])
+  @@index([status])
+  @@map("sync_jobs")
+}
+
+model AnalyticsDaily {
+  id                String   @id @default(dbgenerated("uuid_generate_v4()")) @db.Uuid
+  storeId           String   @map("store_id") @db.Uuid
+  date              DateTime @db.Date
+  totalOrders       Int      @default(0) @map("total_orders")
+  totalRevenue      Decimal  @default(0) @map("total_revenue") @db.Decimal(10, 2)
+  averageOrderValue Decimal  @default(0) @map("average_order_value") @db.Decimal(10, 2)
+  newCustomers      Int      @default(0) @map("new_customers")
+  createdAt         DateTime @default(now()) @map("created_at") @db.Timestamptz
+
+  store Store @relation(fields: [storeId], references: [id], onDelete: Cascade)
+
+  @@unique([storeId, date])
+  @@index([storeId, date])
+  @@map("analytics_daily")
+}
